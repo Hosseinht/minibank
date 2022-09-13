@@ -1,11 +1,15 @@
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Currency, Category, Transaction
-from .serializers import CurrencySerializer, CategorySerializer, TransactionWriteSerializer, TransactionReadSerializer
+from .reports import transaction_report
+from .serializers import CurrencySerializer, CategorySerializer, TransactionWriteSerializer, TransactionReadSerializer, \
+    ReportEntrySerializer, ReportParamsSerializer
 
 
 class CurrencyListView(ListAPIView):
@@ -17,6 +21,7 @@ class CurrencyListView(ListAPIView):
 class CategoryViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CategorySerializer
+
     # pagination_class = None
 
     def get_queryset(self):
@@ -45,3 +50,18 @@ class TransactionViewSet(ModelViewSet):
     #     # save method. we can override it to add the authenticated user while creating a Transaction instance
     #     serializer.save(user=self.request.user)
     #     # the alternative way is to use HiddenField in serializer
+
+
+class TransactionReportAPIView(APIView):
+    # it creates report for all the transaction not the authenticated user
+    # permission_classes = [IsAuthenticated]
+    # filter_backends = [DjangoFilterBackend]
+    # filterset_fields = ['date']
+
+    def get(self, request):
+        params_serializer = ReportParamsSerializer(data=request.GET, context={"request": request})
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.save()
+        data = transaction_report(params)
+        serializer = ReportEntrySerializer(instance=data, many=True)
+        return Response(data=serializer.data)
